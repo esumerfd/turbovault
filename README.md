@@ -72,7 +72,7 @@ This means TurboVault gets battle-tested reliability and extensibility out of th
 
 ### Installation
 
-**From crates.io (after publishing):**
+**From crates.io**
 
 ```bash
 # Minimal install (7.0 MB, STDIO only - perfect for Claude Desktop)
