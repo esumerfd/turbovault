@@ -14,11 +14,16 @@ pub struct LinkGraph {
     /// Directed graph: nodes are file paths, edges are links
     graph: DiGraph<PathBuf, Link>,
 
-    /// Map from file name (stem, lowercased) to node index
-    file_index: HashMap<String, NodeIndex>,
+    /// Map from file name (stem, lowercased) to node indices.
+    /// Multiple files may share the same lowercased stem on case-sensitive
+    /// filesystems (e.g. `Note.md` and `NOTE.md` on ext4). We store all
+    /// candidates and resolve to the first match, mirroring Obsidian's
+    /// "first found wins" behaviour.
+    file_index: HashMap<String, Vec<NodeIndex>>,
 
-    /// Map from aliases (lowercased) to node index
-    alias_index: HashMap<String, NodeIndex>,
+    /// Map from aliases (lowercased) to node indices.
+    /// Same multi-value semantics as `file_index`.
+    alias_index: HashMap<String, Vec<NodeIndex>>,
 
     /// Map from full path to node index (for quick lookups)
     path_index: HashMap<PathBuf, NodeIndex>,
@@ -40,6 +45,11 @@ impl LinkGraph {
         }
     }
 
+    /// Total number of unresolved links across all source files.
+    pub fn unresolved_link_count(&self) -> usize {
+        self.unresolved_links.values().map(|v| v.len()).sum()
+    }
+
     /// Add a file to the graph
     pub fn add_file(&mut self, file: &VaultFile) -> Result<()> {
         let path = file.path.clone();
@@ -53,38 +63,99 @@ impl LinkGraph {
 
             // Add to file_index by stem (lowercased for case-insensitive resolution)
             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                self.file_index.insert(stem.to_lowercase(), idx);
+                self.file_index
+                    .entry(stem.to_lowercase())
+                    .or_default()
+                    .push(idx);
             }
 
             idx
         };
 
-        // Register aliases from frontmatter (lowercased for case-insensitive resolution)
+        // Register aliases from frontmatter (lowercased for case-insensitive resolution).
+        // Guard against duplicates: add_file may be called multiple times for the
+        // same path (e.g. on every write_file), so only push if not already present.
         if let Some(fm) = &file.frontmatter {
             for alias in fm.aliases() {
-                self.alias_index.insert(alias.to_lowercase(), node_idx);
+                let entries = self.alias_index.entry(alias.to_lowercase()).or_default();
+                if !entries.contains(&node_idx) {
+                    entries.push(node_idx);
+                }
             }
         }
 
         Ok(())
     }
 
-    /// Remove a file from the graph
+    /// Remove a file from the graph.
+    ///
+    /// **Important**: petgraph's `remove_node` uses swap-remove — the last node
+    /// in the graph is moved into the removed node's slot. We must update all
+    /// external index maps (`path_index`, `file_index`, `alias_index`) to reflect
+    /// the swapped node's new `NodeIndex`.
     pub fn remove_file(&mut self, path: &PathBuf) -> Result<()> {
         if let Some(&idx) = self.path_index.get(path) {
-            // Remove from all indices
+            // Remove the target node from all indices
             self.path_index.remove(path);
             self.unresolved_links.remove(path);
 
             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                self.file_index.remove(&stem.to_lowercase());
+                let key = stem.to_lowercase();
+                if let Some(indices) = self.file_index.get_mut(&key) {
+                    indices.retain(|&i| i != idx);
+                    if indices.is_empty() {
+                        self.file_index.remove(&key);
+                    }
+                }
             }
 
             // Remove aliases pointing to this node
-            self.alias_index.retain(|_, &mut node_idx| node_idx != idx);
+            for indices in self.alias_index.values_mut() {
+                indices.retain(|&i| i != idx);
+            }
+            self.alias_index.retain(|_, indices| !indices.is_empty());
+
+            // Before removing, identify the node that will be swapped into `idx`.
+            // petgraph moves the last node (highest index) into the removed slot.
+            let last_idx = NodeIndex::new(self.graph.node_count() - 1);
+            let swapped_path = if last_idx != idx {
+                Some(self.graph[last_idx].clone())
+            } else {
+                None
+            };
 
             // Remove node and all edges
             self.graph.remove_node(idx);
+
+            // Fix up index maps for the swapped node (formerly at last_idx, now at idx)
+            if let Some(swapped_path) = swapped_path {
+                // Update path_index
+                self.path_index.insert(swapped_path.clone(), idx);
+
+                // Update file_index: replace last_idx with idx
+                if let Some(stem) = swapped_path.file_stem().and_then(|s| s.to_str()) {
+                    let key = stem.to_lowercase();
+                    if let Some(indices) = self.file_index.get_mut(&key) {
+                        for node_idx in indices.iter_mut() {
+                            if *node_idx == last_idx {
+                                *node_idx = idx;
+                            }
+                        }
+                    }
+                }
+
+                // Update alias_index: replace last_idx with idx
+                for indices in self.alias_index.values_mut() {
+                    for node_idx in indices.iter_mut() {
+                        if *node_idx == last_idx {
+                            *node_idx = idx;
+                        }
+                    }
+                }
+
+                // Update unresolved_links key if the swapped node had entries
+                // (key is by path, not by index, so no change needed — paths don't move)
+            }
         }
 
         Ok(())
@@ -137,17 +208,23 @@ impl LinkGraph {
         let clean_target = target.split('#').next()?.trim();
         let clean_lower = clean_target.to_lowercase();
 
-        // Try direct stem match (case-insensitive)
-        if let Some(&idx) = self.file_index.get(&clean_lower) {
+        // Try direct stem match (case-insensitive, first-found wins)
+        if let Some(indices) = self.file_index.get(&clean_lower)
+            && let Some(&idx) = indices.first()
+        {
             return Some(idx);
         }
 
-        // Try alias match (case-insensitive)
-        if let Some(&idx) = self.alias_index.get(&clean_lower) {
+        // Try alias match (case-insensitive, first-found wins)
+        if let Some(indices) = self.alias_index.get(&clean_lower)
+            && let Some(&idx) = indices.first()
+        {
             return Some(idx);
         }
 
-        // Try path-like match (folder/Note) with case-insensitive comparison
+        // Try path-like match (folder/Note) with case-insensitive comparison.
+        // Obsidian wikilinks omit the .md extension, so we strip it from path
+        // components before comparing.
         let target_parts: Vec<String> = clean_target
             .split('/')
             .filter(|p| !p.is_empty())
@@ -159,11 +236,20 @@ impl LinkGraph {
 
         // Find file path that matches the tail of the target path
         for (path, &idx) in self.path_index.iter() {
-            let path_parts: Vec<String> = path
+            let mut path_parts: Vec<String> = path
                 .iter()
                 .filter_map(|p| p.to_str())
                 .map(|p| p.to_lowercase())
                 .collect();
+
+            // Strip .md extension from the last component to match Obsidian's
+            // extension-free wikilink convention (e.g. [[folder/Note]] resolves
+            // to folder/Note.md)
+            if let Some(last) = path_parts.last_mut()
+                && let Some(stripped) = last.strip_suffix(".md")
+            {
+                *last = stripped.to_string();
+            }
 
             if path_parts.len() >= target_parts.len() {
                 let start = path_parts.len() - target_parts.len();
@@ -574,5 +660,114 @@ mod tests {
         // Unresolved links should be cleared
         assert!(graph.all_unresolved_links().is_empty());
         assert_eq!(graph.edge_count(), 1);
+    }
+
+    #[test]
+    fn test_case_insensitive_collision_both_indexed() {
+        // On case-sensitive filesystems, Note.md and NOTE.md can coexist.
+        // Both should be in the graph and the first-added should win for
+        // resolution, but neither should be silently dropped.
+        let mut graph = LinkGraph::new();
+        let file1 = create_test_file("Note.md", vec![]);
+        let file2 = create_test_file("NOTE.md", vec![]);
+        let linker = create_test_file("linker.md", vec!["note"]);
+
+        graph.add_file(&file1).unwrap();
+        graph.add_file(&file2).unwrap();
+        graph.add_file(&linker).unwrap();
+        graph.update_links(&linker).unwrap();
+
+        // Both files should exist as nodes
+        assert_eq!(graph.node_count(), 3);
+
+        // Link should resolve (to whichever was added first)
+        assert_eq!(graph.edge_count(), 1);
+        assert!(graph.all_unresolved_links().is_empty());
+    }
+
+    #[test]
+    fn test_remove_file_with_case_collision() {
+        let mut graph = LinkGraph::new();
+        let file1 = create_test_file("Note.md", vec![]);
+        let file2 = create_test_file("NOTE.md", vec![]);
+
+        graph.add_file(&file1).unwrap();
+        graph.add_file(&file2).unwrap();
+        assert_eq!(graph.node_count(), 2);
+
+        // Remove first file — second should still be findable
+        graph.remove_file(&PathBuf::from("Note.md")).unwrap();
+
+        let linker = create_test_file("linker.md", vec!["note"]);
+        graph.add_file(&linker).unwrap();
+        graph.update_links(&linker).unwrap();
+
+        // Should resolve to NOTE.md, not to linker itself (self-loop)
+        assert_eq!(graph.edge_count(), 1);
+        assert!(graph.all_unresolved_links().is_empty());
+
+        // Verify the edge target is actually NOTE.md
+        let forward = graph.forward_links(&PathBuf::from("linker.md")).unwrap();
+        assert_eq!(forward.len(), 1);
+        assert_eq!(forward[0].0, PathBuf::from("NOTE.md"));
+    }
+
+    #[test]
+    fn test_remove_node_swap_fixup_three_nodes() {
+        // Regression test for petgraph swap-remove index invalidation.
+        // When the first node is removed, petgraph moves the last node
+        // into its slot. Our index maps must be updated accordingly.
+        let mut graph = LinkGraph::new();
+        let a = create_test_file("a.md", vec![]);
+        let b = create_test_file("b.md", vec![]);
+        let c = create_test_file("c.md", vec!["b"]);
+
+        graph.add_file(&a).unwrap(); // NodeIndex(0)
+        graph.add_file(&b).unwrap(); // NodeIndex(1)
+        graph.add_file(&c).unwrap(); // NodeIndex(2)
+        graph.update_links(&c).unwrap();
+
+        assert_eq!(graph.edge_count(), 1);
+
+        // Remove a.md — petgraph swaps c.md (last) into slot 0.
+        // All index maps for c.md must be updated.
+        graph.remove_file(&PathBuf::from("a.md")).unwrap();
+
+        assert_eq!(graph.node_count(), 2);
+
+        // Verify c.md is still reachable and its edges are correct
+        let forward = graph.forward_links(&PathBuf::from("c.md")).unwrap();
+        assert_eq!(forward.len(), 1);
+        assert_eq!(forward[0].0, PathBuf::from("b.md"));
+
+        // Verify b.md backlinks still point to c.md
+        let back = graph.backlinks(&PathBuf::from("b.md")).unwrap();
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].0, PathBuf::from("c.md"));
+
+        // Adding a new link to c.md should still work
+        let d = create_test_file("d.md", vec!["c"]);
+        graph.add_file(&d).unwrap();
+        graph.update_links(&d).unwrap();
+
+        let c_back = graph.backlinks(&PathBuf::from("c.md")).unwrap();
+        assert_eq!(c_back.len(), 1);
+        assert_eq!(c_back[0].0, PathBuf::from("d.md"));
+    }
+
+    #[test]
+    fn test_resolve_link_path_suffix_without_extension() {
+        // Obsidian wikilinks like [[folder/Note]] should resolve to
+        // folder/Note.md without requiring the .md extension.
+        let mut graph = LinkGraph::new();
+        let file = create_test_file("projects/ideas/My Note.md", vec![]);
+        let linker = create_test_file("index.md", vec!["ideas/My Note"]);
+
+        graph.add_file(&file).unwrap();
+        graph.add_file(&linker).unwrap();
+        graph.update_links(&linker).unwrap();
+
+        assert_eq!(graph.edge_count(), 1);
+        assert!(graph.all_unresolved_links().is_empty());
     }
 }
