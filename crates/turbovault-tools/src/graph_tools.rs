@@ -109,6 +109,8 @@ impl GraphTools {
         let config = AnalysisConfig {
             hub_notes_limit: limit,
         };
+        // Pass None for unresolved links — hub detection only needs the resolved
+        // graph edges, not broken link data.
         let analyzer = HealthAnalyzer::with_config(&graph, None, config);
 
         let report = analyzer.analyze()?;
