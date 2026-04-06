@@ -136,7 +136,7 @@ use turbovault_core::prelude::*;
 use turbovault_vault::VaultManager;
 
 /// Individual batch operation to execute
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type")]
 pub enum BatchOperation {
     /// Create a new note with content
