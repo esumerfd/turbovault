@@ -5,6 +5,20 @@ All notable changes to TurboVault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-04-07
+
+### Fixed
+
+- **`edit_note` hang on non-matching SEARCH blocks** ([#10](https://github.com/Epistates/turbovault/issues/10)): Replaced O(n·m³) brute-force sliding window Levenshtein with O(n·m) semi-global alignment DP. Non-matching edits now return an error in <100ms instead of hanging for minutes.
+
+### Changed
+
+- **`EditEngine::apply_edits` return type**: Now returns `(EditResult, String)` to provide the new content alongside metadata, eliminating redundant `apply_blocks()` calls that doubled computation in all code paths.
+
+### Removed
+
+- **`strsim` dependency**: No longer needed; fuzzy matching uses inline semi-global alignment DP instead of per-window Levenshtein calls.
+
 ## [1.3.1] - 2026-04-05
 
 ### Changed

@@ -70,6 +70,13 @@ pub struct EditConfig {
 
     /// Enable fuzzy Levenshtein matching
     pub allow_fuzzy_match: bool,
+
+    /// Maximum character-comparison budget for fuzzy matching (n × m).
+    /// Inputs exceeding this skip the Levenshtein strategy entirely.
+    pub max_fuzzy_budget: usize,
+
+    /// Maximum search string length (in characters) for fuzzy matching.
+    pub max_search_len: usize,
 }
 
 impl Default for EditConfig {
@@ -79,6 +86,8 @@ impl Default for EditConfig {
             allow_whitespace_flex: true,
             allow_indent_flex: true,
             allow_fuzzy_match: true,
+            max_fuzzy_budget: 10_000_000,
+            max_search_len: 10_000,
         }
     }
 }
@@ -395,15 +404,16 @@ impl EditEngine {
     /// Complexity: O(n * m) vs the previous sliding window O(n * m³)
     #[allow(clippy::needless_range_loop)] // DP loops index multiple arrays by j
     fn fuzzy_find_levenshtein(&self, content: &str, search: &str) -> Option<(usize, usize)> {
-        const MAX_FUZZY_BUDGET: usize = 10_000_000;
-        const MAX_SEARCH_LEN: usize = 10_000;
-
         let content_chars: Vec<char> = content.chars().collect();
         let search_chars: Vec<char> = search.chars().collect();
         let n = content_chars.len();
         let m = search_chars.len();
 
-        if m == 0 || n == 0 || m > MAX_SEARCH_LEN || n * m > MAX_FUZZY_BUDGET {
+        if m == 0
+            || n == 0
+            || m > self.config.max_search_len
+            || n * m > self.config.max_fuzzy_budget
+        {
             return None;
         }
 
@@ -693,6 +703,7 @@ second new
             allow_indent_flex: false,
             allow_fuzzy_match: true,
             max_fuzzy_distance: 0.85, // threshold = floor(20 * 0.15) = 3
+            ..EditConfig::default()
         });
 
         // "the quikc brown foxes" — "quick" is misspelled as "quikc"
