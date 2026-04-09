@@ -6,13 +6,13 @@
 
 Production-grade MCP server for Obsidian vault management.
 
-The main executable binary that exposes 44 MCP tools for AI agents to autonomously manage Obsidian vaults. This is the entry point for end users - it orchestrates all vault operations by integrating the core, parser, graph, vault, batch, export, and tools crates into a unified Model Context Protocol server.
+The main executable binary that exposes 47 MCP tools for AI agents to autonomously manage Obsidian vaults. This is the entry point for end users - it orchestrates all vault operations by integrating the core, parser, graph, vault, sql, batch, export, and tools crates into a unified Model Context Protocol server.
 
 ## What This Is
 
 `turbovault` is the **main binary** that end users run to expose their Obsidian vault to AI agents via the Model Context Protocol (MCP). It provides:
 
-- **44 MCP Tools**: Complete vault management API (read, write, search, analyze, templates, batch operations)
+- **47 MCP Tools**: Complete vault management API (read, write, search, SQL queries, analyze, templates, batch operations)
 - **STDIO Transport**: Standard MCP-compliant communication over stdin/stdout
 - **Full-Text Search**: Tantivy-powered search with TF-IDF ranking
 - **Link Graph Analysis**: Backlinks, hubs, orphans, cycles, health scoring

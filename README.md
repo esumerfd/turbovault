@@ -22,10 +22,10 @@ Build your own applications, search engines, or custom MCP servers using our mod
 - **SOTA Standards**: Fully supports Obsidian-flavored Markdown (wikilinks, embeds, callouts).
 
 ### 2. As a Ready-to-Use MCP Server (For Users)
-Transform your Obsidian vault into an intelligent knowledge system immediately. Connect TurboVault to Claude Desktop or any MCP-compatible client to gain **44 specialized tools** for your notes.
+Transform your Obsidian vault into an intelligent knowledge system immediately. Connect TurboVault to Claude Desktop or any MCP-compatible client to gain **47 specialized tools** for your notes.
 
 - **Zero Coding Required**: Install the binary and point it at your vault.
-- **44+ Specialized Tools**: Searching, link analysis, health checks, and more.
+- **47 Specialized Tools**: Searching, link analysis, SQL frontmatter queries, health checks, and more.
 - **Multi-Vault Support**: Switch between personal and work notes seamlessly at runtime.
 
 ---
@@ -40,7 +40,8 @@ TurboVault is a modular system composed of specialized crates. You can depend on
 | **[turbovault-parser](crates/turbovault-parser)** | High-speed .md & .ofm parser | [![Docs.rs](https://docs.rs/turbovault-parser/badge.svg)](https://docs.rs/turbovault-parser) |
 | **[turbovault-graph](crates/turbovault-graph)** | Link graph analysis & relationship discovery | [![Docs.rs](https://docs.rs/turbovault-graph/badge.svg)](https://docs.rs/turbovault-graph) |
 | **[turbovault-vault](crates/turbovault-vault)** | Vault management, file I/O & atomic writes | [![Docs.rs](https://docs.rs/turbovault-vault/badge.svg)](https://docs.rs/turbovault-vault) |
-| **[turbovault-tools](crates/turbovault-tools)** | 44+ MCP tool implementations | [![Docs.rs](https://docs.rs/turbovault-tools/badge.svg)](https://docs.rs/turbovault-tools) |
+| **[turbovault-tools](crates/turbovault-tools)** | 47 MCP tool implementations | [![Docs.rs](https://docs.rs/turbovault-tools/badge.svg)](https://docs.rs/turbovault-tools) |
+| **[turbovault-sql](crates/turbovault-sql)** | SQL frontmatter queries (GlueSQL) | [![Docs.rs](https://docs.rs/turbovault-sql/badge.svg)](https://docs.rs/turbovault-sql) |
 | **[turbovault-batch](crates/turbovault-batch)** | Atomic batch operations | [![Docs.rs](https://docs.rs/turbovault-batch/badge.svg)](https://docs.rs/turbovault-batch) |
 | **[turbovault-export](crates/turbovault-export)** | Export & reporting (JSON/CSV/MD) | [![Docs.rs](https://docs.rs/turbovault-export/badge.svg)](https://docs.rs/turbovault-export) |
 | **[turbovault](crates/turbovault)** | Main MCP server binary / SDK orchestrator | [![Docs.rs](https://docs.rs/turbovault/badge.svg)](https://docs.rs/turbovault) |
@@ -84,6 +85,9 @@ cargo install turbovault --features http
 # With all cross-platform transports (~8.8 MB)
 # Includes: STDIO, HTTP, WebSocket, TCP (Unix sockets only on Unix/macOS/Linux)
 cargo install turbovault --features full
+
+# With SQL frontmatter queries (adds GlueSQL-powered query_frontmatter_sql tool)
+cargo install turbovault --features sql
 
 # Binary installed to: ~/.cargo/bin/turbovault
 ```
@@ -188,7 +192,7 @@ You: "Based on my vault, what notes should I link this to?"
 Claude: suggest_links() -> get_link_strength() -> recommend cross-references
 ```
 
-## 44 MCP Tools Organized by Category
+## 47 MCP Tools Organized by Category
 
 ### File Operations (5)
 - `read_note` — Get note content with hash for conflict detection
@@ -212,12 +216,15 @@ Claude: suggest_links() -> get_link_strength() -> recommend cross-references
 - `detect_cycles` — Circular reference chains (sometimes intentional)
 - `explain_vault` — Holistic overview replacing 5+ separate calls
 
-### Full-Text Search (5)
+### Full-Text Search (8)
 - `search` — BM25-ranked search across all notes (<500ms on 100k notes)
-- `advanced_search` — Search with tag/metadata filters
+- `advanced_search` — Search with tag, frontmatter, path, and limit filters
+- `search_by_frontmatter` — Find notes by frontmatter key-value pair
 - `recommend_related` — ML-powered recommendations based on content similarity
 - `find_notes_from_template` — Find all notes using a specific template
 - `query_metadata` — Frontmatter pattern queries
+- `inspect_frontmatter` — Schema inspection for SQL queries (feature: `sql`)
+- `query_frontmatter_sql` — Arbitrary SQL against frontmatter via GlueSQL (feature: `sql`)
 
 ### Templates (4)
 - `list_templates` — Discover available templates
@@ -409,8 +416,9 @@ turbovault-graph       — Link graph analysis with petgraph
 turbovault-vault       — Vault operations, file I/O, atomic writes
 turbovault-batch       — Transactional batch operations
 turbovault-export      — JSON/CSV/Markdown export
-turbovault-tools       — 44 MCP tool implementations
-turbovault-server      — CLI and MCP server entry point (binary)
+turbovault-sql         — SQL frontmatter queries (GlueSQL, feature-gated)
+turbovault-tools       — 47 MCP tool implementations
+turbovault (binary)    — CLI and MCP server entry point
 ```
 
 All crates are published to [crates.io](https://crates.io/crates/turbovault-core) for public use.
