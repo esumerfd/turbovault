@@ -14,7 +14,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "1.4.0"
+version = "1.4.1"
 edition = "2024"
 rust-version = "1.90.0"
 authors = ["Epistates, Inc <nick@epistates.com>"]
@@ -47,26 +47,26 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 
 # Data structures & algorithms
-petgraph = "0.6"             # 2.1M+ downloads, ecosystem standard for graphs
+petgraph = "0.8"             # 2.1M+ downloads, ecosystem standard for graphs
 
 # File I/O & Watching (upgraded from watchfiles to notify directly)
-notify = "6"                 # 2025 current, v6.x active maintenance
+notify = "8"                 # 2025 current, v8.x active maintenance
 walkdir = "2"
 
 # Parsing utilities
 regex = "1"
 
 # Error handling
-thiserror = "1.0"
+thiserror = "2.0"
 anyhow = "1.0"
 
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.6", features = ["v4", "serde"] }
-dashmap = "5.5"
+dashmap = "6.1"
 
 # Configuration
-config = "0.14"
+config = "0.15"
 clap = { version = "4.4", features = ["derive", "env"] }
 
 # Testing utilities
@@ -80,10 +80,10 @@ log = "0.4"
 gluesql = { version = "0.19", default-features = false, features = ["gluesql_memory_storage"] }
 
 # Search and Matching (Tier 1d: Replace hand-rolled implementations)
-tantivy = "0.22"           # Full-text search engine (Apache Lucene-inspired, production-grade)
+tantivy = "0.26"           # Full-text search engine (Apache Lucene-inspired, production-grade)
 
 # File Editing & Diff (World-class fuzzy matching for LLM-generated edits)
-similar = { version = "2.7", features = ["inline"] }  # mitsuhiko's diff lib (used by insta)
+similar = { version = "3.1", features = ["inline"] }  # mitsuhiko's diff lib (used by insta)
 strsim = "0.11"           # Levenshtein distance for fuzzy matching (if similar insufficient)
 sha2 = "0.10"             # SHA-256 hashing for content validation
 unicode-normalization = "0.1.6"  # Unicode NFC normalization
@@ -96,16 +96,16 @@ path_trav = "2"           # Path traversal detection - security-focused
 # sonic-rs = "0.3"         # Fastest JSON parser, deferred optimization
 
 # Workspace crates
-turbovault-core = { version = "1.4.0", path = "crates/turbovault-core" }
-turbovault-parser = { version = "1.4.0", path = "crates/turbovault-parser" }
-turbovault-graph = { version = "1.4.0", path = "crates/turbovault-graph" }
-turbovault-vault = { version = "1.4.0", path = "crates/turbovault-vault" }
-turbovault-batch = { version = "1.4.0", path = "crates/turbovault-batch" }
-turbovault-export = { version = "1.4.0", path = "crates/turbovault-export" }
-turbovault-audit = { version = "1.4.0", path = "crates/turbovault-audit" }
-turbovault-sql = { version = "1.4.0", path = "crates/turbovault-sql" }
-turbovault-tools = { version = "1.4.0", path = "crates/turbovault-tools" }
-turbovault = { version = "1.4.0", path = "crates/turbovault" }
+turbovault-core = { version = "1.4.1", path = "crates/turbovault-core" }
+turbovault-parser = { version = "1.4.1", path = "crates/turbovault-parser" }
+turbovault-graph = { version = "1.4.1", path = "crates/turbovault-graph" }
+turbovault-vault = { version = "1.4.1", path = "crates/turbovault-vault" }
+turbovault-batch = { version = "1.4.1", path = "crates/turbovault-batch" }
+turbovault-export = { version = "1.4.1", path = "crates/turbovault-export" }
+turbovault-audit = { version = "1.4.1", path = "crates/turbovault-audit" }
+turbovault-sql = { version = "1.4.1", path = "crates/turbovault-sql" }
+turbovault-tools = { version = "1.4.1", path = "crates/turbovault-tools" }
+turbovault = { version = "1.4.1", path = "crates/turbovault" }
 
 [profile.release]
 opt-level = 3

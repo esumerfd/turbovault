@@ -5,6 +5,14 @@ All notable changes to TurboVault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-04-16
+
+### Changed
+
+- **Dependency refresh**: Updated all workspace dependencies to latest versions, including major-version bumps: `thiserror` 1.0 → 2.0, `config` 0.14 → 0.15, `dashmap` 5.5 → 6.1, `notify` 6 → 8, `petgraph` 0.6 → 0.8, `tantivy` 0.22 → 0.26, `similar` 2.7 → 3.1, and `turbomcp` 3.0.11 → 3.0.14.
+- **Tantivy 0.26 API migration**: `TopDocs::with_limit(n)` now requires `.order_by_score()` to produce a `Collector`.
+- **Similar 3.1 API migration**: `TextDiff` dropped the third lifetime parameter.
+
 ## [1.4.0] - 2026-04-08
 
 ### Added

@@ -125,7 +125,7 @@ impl DiffTools {
 }
 
 /// Extract paired delete/insert changes and compute word-level diffs
-fn compute_inline_changes<'a>(line_diff: &TextDiff<'a, 'a, 'a, str>) -> Vec<InlineChange> {
+fn compute_inline_changes<'a>(line_diff: &TextDiff<'a, 'a, str>) -> Vec<InlineChange> {
     let mut inline_changes = Vec::new();
     let changes: Vec<_> = line_diff.iter_all_changes().collect();
 

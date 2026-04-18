@@ -328,7 +328,10 @@ impl SearchQuery {
 
         // Execute search
         let top_docs = searcher
-            .search(&query, &TopDocs::with_limit(limit * 2)) // Get extra docs for filtering
+            .search(
+                &query,
+                &TopDocs::with_limit(limit * 2).order_by_score(), // Get extra docs for filtering
+            )
             .map_err(|e| Error::config_error(format!("Search failed: {}", e)))?;
 
         let mut results = Vec::new();
